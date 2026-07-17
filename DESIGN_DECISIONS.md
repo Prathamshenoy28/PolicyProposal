@@ -1,252 +1,195 @@
 # Design Decisions Document
 
-## Project Architecture
+## 1. Project Purpose
 
-### Layered Architecture (Controller → Service → Repository)
+This project is a Spring Boot demo application for processing insurance policy proposals. It exposes REST endpoints for:
+- creating and managing customers
+- creating and submitting policy proposals
+- reading reference data
+- reviewing audit records
 
-The application implements a clean, layered architecture with clear separation of concerns:
+The app is intentionally lightweight and uses in-memory repositories so it can run without a database.
 
+## 2. Current Architecture
+
+The application follows a layered structure:
+
+```text
+Controller Layer -> Service Layer -> Repository Layer -> In-Memory Storage
 ```
-┌─────────────────────────┐
-│   Controller Layer      │  REST Endpoints & Input Validation
-├─────────────────────────┤
-│   Service Layer         │  Business Logic & Rules
-├─────────────────────────┤
-│   Repository Layer      │  Data Access & Storage
-├─────────────────────────┤
-│   In-Memory Storage     │  Java Collections (ConcurrentHashMap)
-└─────────────────────────┘
+
+### Layer responsibilities
+- Controller layer: exposes REST endpoints and delegates to services
+- Service layer: contains business rules and orchestration logic
+- Repository layer: stores and retrieves domain objects in memory
+- Model/DTO layer: defines the request and response objects used by the API
+
+## 3. Storage and Data Model Decisions
+
+### In-memory repositories
+Decision: use simple Java collections in repository classes rather than a database.
+
+Current implementation:
+- CustomerRepository stores customers in a HashMap keyed by customerId
+- ProposalRepository stores proposals in a HashMap keyed by proposalId
+- AuditRepository stores audit entries in a HashMap keyed by auditId
+- ReferenceDataRepository stores predefined reference values in a HashMap
+
+Why this was chosen:
+- keeps the application simple and easy to run locally
+- avoids setup overhead for database configuration
+- makes the project suitable for a demo or assignment
+
+Trade-off:
+- data is not persisted after application shutdown
+- the current implementation is not designed for production-grade concurrency
+
+## 4. ID and Number Generation
+
+### Entity IDs
+Decision: use UUID strings for customer, proposal, and audit IDs.
+
+Why:
+- avoids manual ID management
+- keeps IDs unique across the in-memory store
+- is simple to use in REST APIs
+
+### Policy number generation
+Decision: generate policy numbers as a string in the form:
+
+```text
+POL{timestamp}{uuid-substring}
 ```
 
-**Rationale:**
-- Provides clear separation of concerns
-- Makes the code maintainable and testable
-- Allows independent testing of each layer
-- Follows Spring Boot best practices
-- Easy to add database layer later if needed
+Example:
+```text
+POL1720000000000ABC12345
+```
 
-## Implementation Decisions
+## 5. Validation Strategy
 
-### 1. In-Memory Storage
+The application uses a two-step validation approach.
 
-**Decision:** Use Java Collections (`ConcurrentHashMap`) for storage
+### A. API boundary validation
+The request DTOs use Bean Validation annotations from Jakarta Validation.
 
-**Alternatives Considered:**
-- Database (H2, MySQL) - Not permitted per requirements
-- Simple HashMap - Not thread-safe
-- CopyOnWriteArrayList - Inefficient for this use case
+Examples:
+- firstName, lastName, email, phone, and age are validated on customer requests
+- proposal fields such as policyTerm, sumAssured, annualPremium, paymentFrequency, and nomineeName are validated on proposal requests
 
-**Why ConcurrentHashMap:**
-- Thread-safe without explicit synchronization for most operations
-- Provides O(1) average time complexity for get/put operations
-- No external dependencies required
-- Simple and straightforward implementation
-- Good for in-memory storage requirements
+This ensures invalid input is rejected early.
 
-### 2. Thread Safety
+### B. Business-rule validation
+The service layer performs custom rules that require more context than DTO validation alone.
 
-**Decision:** Use both ConcurrentHashMap and synchronized blocks for critical operations
+Current business rules include:
+- customer age must be between 18 and 65
+- each email must be unique
+- policy term must be one of 10, 15, 20, 25, or 30
+- sum assured must be between Rs. 1,00,000 and Rs. 5,00,00,000
+- annual premium must be at least Rs. 5,000
+- PAN is mandatory when annual premium exceeds Rs. 50,000
+- nominee cannot be the same as the customer
+- a proposal can only be submitted once
 
-**Implementation:**
+## 6. Dependency Injection Style
+
+Decision: keep the current Spring field-injection style in controllers and services.
+
+Current pattern:
 ```java
-private final Map<String, Customer> customers = new ConcurrentHashMap<>();
-private final Object lock = new Object();
-
-public Customer save(Customer customer) {
-    synchronized (lock) {
-        customers.put(customer.getCustomerId(), customer);
-        return customer;
-    }
-}
+@Autowired
+private CustomerService customerService;
 ```
 
-**Rationale:**
-- Ensures atomicity of compound operations (e.g., get-then-check-then-put)
-- Prevents race conditions during complex operations
-- Critical for audit trail consistency
+Why this style is used here:
+- it matches the existing code style in the project
+- it keeps the implementation concise for this demo app
+- it is easy to use in unit tests by assigning the dependencies directly
 
-### 3. ID Generation
+Note:
+- constructor injection is generally preferred in larger production systems
+- the current codebase intentionally uses field injection for consistency and simplicity
 
-**Decision:** Use UUID for all entity IDs
+## 7. Exception Handling
 
-**Alternatives Considered:**
-- Sequential IDs - Would require centralized counter (synchronization overhead)
-- Timestamp-based IDs - Not guaranteed to be unique with high concurrency
-- Custom ID format - More complexity
+Decision: centralize error handling with a global exception handler.
 
-**Why UUID:**
-- Guaranteed uniqueness
-- No central counter needed
-- Standard approach in distributed systems
-- Easy to implement and debug
+The application uses:
+- BusinessException for business-rule violations
+- ResourceNotFoundException for missing entities
+- GlobalExceptionHandler to return consistent error responses
 
-### 4. Policy Number Generation
+Error responses include:
+- status code
+- message
+- timestamp
 
-**Decision:** Format: `POL{timestamp}{uuid-substring}`
+## 8. DTO and API Design
 
-Example: `POL1689000002000ABC12345`
+Decision: use dedicated DTOs for incoming request payloads and return the domain models directly from the controller layer.
 
-**Rationale:**
-- Timestamp provides chronological ordering
-- UUID substring ensures uniqueness
-- Human-readable prefix ("POL") for identification
-- Unlikely to generate duplicates even with concurrent submissions
+Current DTOs:
+- CustomerRequest
+- ProposalRequest
 
-### 5. Validation Strategy
+Current response objects:
+- Customer
+- Proposal
+- Audit
 
-**Two-level validation approach:**
+This keeps the API simple while still separating request input from domain entities.
 
-1. **Input Validation (API Boundary)**
-   - Use `@Valid` and `@Constraint` annotations
-   - Validate data types, required fields, format
-   - Occurs in Controller layer
-   - Framework-driven validation using `jakarta.validation`
+## 9. Audit Trail Design
 
-2. **Business Validation (Service Layer)**
-   - Complex business rules (age range, PAN requirements, etc.)
-   - Cross-entity validations (nominee vs customer)
-   - Reference data validation
-   - Occurs in Service layer
+Decision: create audit records whenever significant actions occur.
 
-**Rationale:**
-- Separates concerns clearly
-- Input validation is faster (fails fast)
-- Business validation can use other services/repositories
-- Easier to test and maintain
-- Follows Spring best practices
+Current audit events include:
+- customer creation
+- customer update
+- proposal creation
+- proposal submission
 
-### 6. Exception Handling
+Each audit entry stores:
+- audit ID
+- entity type
+- entity ID
+- action
+- details
+- timestamp
 
-**Decision:** Centralized exception handling with custom exceptions
+## 10. Testing Strategy
 
-**Custom Exception Hierarchy:**
-```
-Exception
-├── BusinessException (extends RuntimeException)
-└── ResourceNotFoundException (extends RuntimeException)
-```
+The project uses JUnit 5 tests for the service layer.
 
-**Global Exception Handler:**
-- Catches all exceptions at the application level
-- Returns consistent error responses
-- Maps exceptions to HTTP status codes
-- Provides meaningful error messages
+Current test coverage includes:
+- customer creation and update scenarios
+- validation failures for customer input
+- proposal creation and submission flows
+- proposal validation rules
+- duplicate or invalid business cases
 
-**Why RuntimeException:**
-- Unchecked exceptions (no need for try-catch)
-- Cleaner code
-- Can be caught and handled globally
-- Follows Spring Boot conventions
+The tests instantiate services directly and assign repository dependencies manually to match the current field-injection style.
 
-### 7. Audit Trail
+## 11. Current Limitations
 
-**Decision:** Create audit records for all significant operations
+The current version is a demo implementation and has a few intentional simplifications:
+- no database or persistence layer
+- no authentication or authorization
+- no pagination for large result sets
+- no production-grade concurrency handling
+- no external configuration for reference data
 
-**Audit Events:**
-- Customer creation and updates
-- Proposal creation and submission
-- Includes timestamp and details
+## 12. Verification Notes
 
-**Rationale:**
-- Provides traceability
-- Satisfies compliance requirements
-- Allows investigation of state changes
-- Enables business analytics
+The project has been verified with the Maven wrapper from the project root.
 
-### 8. DTO Pattern
-
-**Decision:** Separate Request and Response DTOs
-
-**Advantages:**
-- Input validation on request objects
-- Response objects can hide sensitive data
-- API contracts are explicit
-- Decouples API from entity models
-- Easy to add/remove fields in future
-
-**Implementation:**
-- `CustomerRequest`: For POST/PUT operations
-- `CustomerResponse`: For GET operations
-- `ProposalRequest`: For POST operations
-- `ProposalResponse`: For GET operations
-
-### 9. Service Layer Design
-
-**Decision:** Services handle business logic, repositories handle data access
-
-**Service Responsibilities:**
-- Validate business rules
-- Coordinate multiple repositories
-- Create audit records
-- Transform between DTOs and entities
-- Manage transactions (if database added later)
-
-**Rationale:**
-- Clean separation of concerns
-- Business logic is testable independently
-- Easy to add cross-cutting concerns
-- Facilitates future caching or transaction management
-
-### 10. Reference Data Management
-
-**Decision:** Hard-coded reference data in ReferenceDataRepository
-
-**Alternatives Considered:**
-- Load from properties file - More flexibility
-- Load from database - Not permitted
-- Hard-code in constants - Less extensible
-
-**Why Hard-coded in Repository:**
-- Simple and straightforward for this assignment
-- Easy to extend
-- All reference data in one place
-- Can be easily moved to properties file later
-
-**Reference Data:**
-```java
-POLICY_TERM: [10, 15, 20, 25, 30]
-PAYMENT_FREQUENCY: [MONTHLY, QUARTERLY, HALF_YEARLY, ANNUAL]
+Example command:
+```bash
+./mvnw.cmd -Dtest=ProposalServiceTest test -q
 ```
 
-## Testing Strategy
-
-### Unit Testing
-
-**Framework:** JUnit 5
-
-**Test Classes:**
-1. **CustomerServiceTest**
-   - Customer creation success scenarios
-   - Age validation (minimum, maximum)
-   - Duplicate email handling
-   - Customer update validation
-   - Resource not found scenarios
-   - Get all customers
-
-2. **ProposalServiceTest**
-   - Proposal creation success
-   - Policy term validation
-   - Sum assured validation (min/max)
-   - Annual premium validation
-   - PAN validation for high premiums
-   - Payment frequency validation
-   - Nominee validation
-   - Proposal submission flow
-   - Cannot submit twice
-
-**Test Approach:**
-- Arrange-Act-Assert (AAA) pattern
-- Uses in-memory repositories
-- No external dependencies
-- Fast execution
-- Covers happy paths and error cases
-
-### Integration Testing
-
-Not included in this implementation as per requirements, but can be added for:
-- Controller-to-Service integration
-- End-to-end API testing
-- Error response validation
+The proposal service test suite currently reports 10 tests run with 0 failures and 0 errors.
 
 ## Trade-offs and Considerations
 

@@ -2,163 +2,131 @@
 
 ## Overview
 
-This Spring Boot application implements a simplified insurance policy proposal system. It provides REST APIs for managing customers, creating policy proposals, and tracking audit records. All data is stored in-memory using Java Collections.
+This Spring Boot application implements a simplified insurance policy proposal system. It exposes REST APIs for creating and managing customers, creating and submitting policy proposals, reading reference data, and reviewing audit records.
+
+The current implementation is a demo app that uses in-memory repositories, Spring field injection in the controllers and services, and direct domain-model responses from the controllers.
 
 ## Technology Stack
 
-- **Java**: 17+
-- **Framework**: Spring Boot 3.1.0
-- **Build Tool**: Maven
-- **Storage**: Java Collections (In-Memory)
-- **Testing**: JUnit 5
-- **API Testing**: Postman / cURL
+- Java 17+
+- Spring Boot 3.1.0
+- Maven
+- JUnit 5
+- Jakarta Validation
+- Lombok
 
 ## Project Structure
 
-```
+```text
 src/
 ├── main/
 │   └── java/com/example/demo/
-│       ├── controller/          # REST Controllers
-│       ├── service/             # Business Logic
-│       ├── repository/          # Data Access Layer
-│       ├── model/               # Entity Models
-│       ├── dto/                 # Data Transfer Objects
-│       ├── exception/           # Custom Exceptions & Global Exception Handler
-│       └── DemoApplication.java # Main Application Class
+│       ├── controller/
+│       ├── service/
+│       ├── repository/
+│       ├── model/
+│       ├── dto/
+│       └── exception/
 └── test/
-    └── java/com/example/demo/
-        └── service/             # Unit Tests
+    └── java/com/example/demo/service/
 ```
 
-## Setup Instructions
+## Getting Started
 
 ### Prerequisites
 - Java 17 or higher
 - Maven 3.6 or higher
 
-### Build and Run
+### Run the app
+From the project root:
 
-1. **Clone/Download the project**
-   ```bash
-   cd demo
-   ```
+```bash
+./mvnw spring-boot:run
+```
 
-2. **Build the project**
-   ```bash
-   mvn clean build
-   ```
+On Windows PowerShell:
 
-3. **Run the application**
-   ```bash
-   mvn spring-boot:run
-   ```
+```powershell
+.\mvnw.cmd spring-boot:run
+```
 
-The application will start on `http://localhost:8080`
+The app will run on http://localhost:8080.
+
+### Run tests
+
+```bash
+./mvnw test
+```
+
+On Windows PowerShell:
+
+```powershell
+.\mvnw.cmd test
+```
+
+### Run one test class
+
+```bash
+./mvnw -Dtest=ProposalServiceTest test
+```
 
 ## API Endpoints
 
-### Reference Master
-- **GET** `/reference-master/{category}`
-  - Returns predefined reference data (POLICY_TERM, PAYMENT_FREQUENCY)
-  - Categories: `POLICY_TERM`, `PAYMENT_FREQUENCY`
+### Reference data
+- GET /reference-master/{category}
+  - Returns predefined reference values such as POLICY_TERM and PAYMENT_FREQUENCY
 
-### Customer Management
-
-- **POST** `/customers`
+### Customers
+- POST /customers
   - Creates a new customer
-  - Request Body:
-    ```json
-    {
-      "firstName": "John",
-      "lastName": "Doe",
-      "email": "john@example.com",
-      "phone": "9999999999",
-      "age": 35,
-      "pan": "ABCDE1234F"
-    }
-    ```
+- GET /customers
+  - Returns all customers
+- GET /customers/{id}
+  - Returns one customer by ID
+- PUT /customers/{id}
+  - Updates a customer
 
-- **GET** `/customers`
-  - Returns the list of all customers
-
-- **GET** `/customers/{id}`
-  - Returns details of a specific customer
-
-- **PUT** `/customers/{id}`
-  - Updates an existing customer
-  - Request Body: Same as POST
-
-### Proposal Management
-
-- **POST** `/proposals`
-  - Creates a new policy proposal
-  - Request Body:
-    ```json
-    {
-      "customerId": "uuid",
-      "policyTerm": 15,
-      "sumAssured": 500000,
-      "annualPremium": 10000,
-      "paymentFrequency": "MONTHLY",
-      "nomineeName": "Jane Doe"
-    }
-    ```
-
-- **GET** `/proposals/{id}`
-  - Returns details of a specific proposal
-
-- **GET** `/proposals`
+### Proposals
+- POST /proposals
+  - Creates a new proposal in DRAFT state
+- GET /proposals/{id}
+  - Returns one proposal by ID
+- POST /proposals/{id}/submit
+  - Submits a proposal and generates a policy number
+- GET /proposals
   - Returns all proposals
 
-- **POST** `/proposals/{id}/submit`
-  - Submits a proposal for processing
-  - Generates unique policy number
-  - Creates audit record
-
-### Audit Management
-
-- **GET** `/audits`
+### Audits
+- GET /audits
   - Returns all audit records
-
-- **GET** `/audits/{entityId}`
+- GET /audits/{entityId}
   - Returns audit records for a specific entity
 
-## Business Rules & Validations
+## Validation Rules
 
-### Customer Validation
-- **Age**: 18 to 65 years (inclusive)
-- **Email**: Valid email format
-- **Phone**: 10 digits
-- **Unique Email**: Each customer must have a unique email
+### Customer validation
+- firstName and lastName are required
+- email is required and must be valid
+- phone must be exactly 10 digits
+- age must be between 18 and 65
 
-### Proposal Validation
-- **Policy Term**: 10, 15, 20, 25, or 30 years
-- **Sum Assured**: Rs. 1,00,000 to Rs. 5,00,00,000
-- **Annual Premium**: Minimum Rs. 5,000
-- **PAN**: Mandatory if Annual Premium exceeds Rs. 50,000
-- **Payment Frequency**: MONTHLY, QUARTERLY, HALF_YEARLY, or ANNUAL
-- **Nominee**: Mandatory and cannot be the same as the customer
+### Proposal validation
+- customerId is required
+- policyTerm must be one of 10, 15, 20, 25, 30
+- sumAssured must be between Rs. 1,00,000 and Rs. 5,00,00,000
+- annualPremium must be at least Rs. 5,000
+- paymentFrequency must be one of MONTHLY, QUARTERLY, HALF_YEARLY, ANNUAL
+- nomineeName is required and cannot match the customer name
+- PAN is required when annual premium is above Rs. 50,000
 
-## Sample API Requests and Responses
+## Sample cURL Requests
 
-### 1. Get Reference Data
+### 1. Get reference data
 ```bash
 curl -X GET http://localhost:8080/reference-master/POLICY_TERM
 ```
 
-Response:
-```json
-[
-  "10",
-  "15",
-  "20",
-  "25",
-  "30"
-]
-```
-
-### 2. Create Customer
+### 2. Create a customer
 ```bash
 curl -X POST http://localhost:8080/customers \
   -H "Content-Type: application/json" \
@@ -172,7 +140,7 @@ curl -X POST http://localhost:8080/customers \
   }'
 ```
 
-Response:
+Example response:
 ```json
 {
   "customerId": "550e8400-e29b-41d4-a716-446655440000",
@@ -187,7 +155,7 @@ Response:
 }
 ```
 
-### 3. Create Proposal
+### 3. Create a proposal
 ```bash
 curl -X POST http://localhost:8080/proposals \
   -H "Content-Type: application/json" \
@@ -201,7 +169,7 @@ curl -X POST http://localhost:8080/proposals \
   }'
 ```
 
-Response:
+Example response:
 ```json
 {
   "proposalId": "660e8400-e29b-41d4-a716-446655440001",
@@ -218,12 +186,12 @@ Response:
 }
 ```
 
-### 4. Submit Proposal
+### 4. Submit the proposal
 ```bash
 curl -X POST http://localhost:8080/proposals/660e8400-e29b-41d4-a716-446655440001/submit
 ```
 
-Response:
+Example response:
 ```json
 {
   "proposalId": "660e8400-e29b-41d4-a716-446655440001",
@@ -234,48 +202,22 @@ Response:
   "paymentFrequency": "MONTHLY",
   "nomineeName": "Jane Doe",
   "status": "SUBMITTED",
-  "policyNumber": "POL1689000002000ABC12345",
+  "policyNumber": "POL1720000000000ABC12345",
   "createdAt": 1689000001000,
   "submittedAt": 1689000002000
 }
 ```
 
-### 5. Get Audits
+### 5. View audit entries
 ```bash
 curl -X GET http://localhost:8080/audits
 ```
 
-Response:
-```json
-[
-  {
-    "auditId": "770e8400-e29b-41d4-a716-446655440002",
-    "entityType": "CUSTOMER",
-    "entityId": "550e8400-e29b-41d4-a716-446655440000",
-    "action": "CREATE",
-    "details": "Customer created: John Doe",
-    "timestamp": 1689000000000
-  },
-  {
-    "auditId": "770e8400-e29b-41d4-a716-446655440003",
-    "entityType": "PROPOSAL",
-    "entityId": "660e8400-e29b-41d4-a716-446655440001",
-    "action": "CREATE",
-    "details": "Proposal created for customer: 550e8400-e29b-41d4-a716-446655440000",
-    "timestamp": 1689000001000
-  }
-]
-```
-
 ## Error Handling
 
-The API returns meaningful error responses with HTTP status codes:
+The API returns structured error responses for invalid requests or missing resources.
 
-- **400 Bad Request**: Validation errors or business rule violations
-- **404 Not Found**: Resource not found
-- **500 Internal Server Error**: Unexpected server errors
-
-Error Response Example:
+Example error response:
 ```json
 {
   "status": 400,
@@ -284,62 +226,14 @@ Error Response Example:
 }
 ```
 
-## Running Tests
-
-Execute unit tests:
-
-```bash
-mvn test
-```
-
-Tests are located in `src/test/java/com/example/demo/service/`
-
-### Test Coverage
-
-- **CustomerServiceTest**: Tests for customer creation, validation, updates, and retrieval
-- **ProposalServiceTest**: Tests for proposal creation, submission, and all business validation rules
-
-## Thread Safety
-
-The application uses:
-- `ConcurrentHashMap` for in-memory storage
-- Synchronized blocks for critical operations
-- Thread-safe operations for all repository methods
-
-## Architecture
-
-The application follows a layered architecture:
-
-```
-Controller Layer (REST Endpoints)
-    ↓
-Service Layer (Business Logic & Validations)
-    ↓
-Repository Layer (Data Access)
-    ↓
-In-Memory Storage (Java Collections)
-```
-
-### Exception Handling
-
-Global exception handling is implemented via `GlobalExceptionHandler` which:
-- Catches all exceptions uniformly
-- Returns consistent error responses
-- Maps exceptions to appropriate HTTP status codes
-- Provides meaningful error messages
-
-## Assumptions
-
-1. Customer IDs and Proposal IDs are generated as UUID strings
-2. Timestamps are stored in milliseconds (System.currentTimeMillis())
-3. Policy numbers are generated as: `POL{timestamp}{uuid-substring}`
-4. All data is lost when the application stops (in-memory storage)
-5. Email uniqueness is enforced at the application level
+Common status codes:
+- 400 Bad Request: business-rule or validation failure
+- 404 Not Found: entity not found
+- 500 Internal Server Error: unexpected server error
 
 ## Notes
 
-- All API responses include timestamps
-- Audit records are created for every significant operation
-- Input validation occurs at the API boundary (@Valid annotation)
-- Business validations occur in the service layer
-- No database is used; all data is stored in-memory
+- Data is stored only in memory and is reset when the app stops.
+- The app does not use a database.
+- The current implementation uses field injection in the controllers and services.
+- Tests are located under src/test/java/com/example/demo/service.
