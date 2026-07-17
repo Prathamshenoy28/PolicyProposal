@@ -22,7 +22,10 @@ class CustomerServiceTest {
     void setUp() {
         customerRepository = new CustomerRepository();
         auditRepository = new AuditRepository();
-        customerService = new CustomerService(customerRepository, auditRepository);
+
+        customerService = new CustomerService();
+        customerService.customerRepository = customerRepository;
+        customerService.auditRepository = auditRepository;
     }
 
     @Test

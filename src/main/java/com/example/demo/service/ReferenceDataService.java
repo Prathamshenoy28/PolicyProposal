@@ -8,12 +8,8 @@ import java.util.List;
 
 @Service
 public class ReferenceDataService {
-    private final ReferenceDataRepository referenceDataRepository;
-
     @Autowired
-    public ReferenceDataService(ReferenceDataRepository referenceDataRepository) {
-        this.referenceDataRepository = referenceDataRepository;
-    }
+    ReferenceDataRepository referenceDataRepository;
 
     public List<String> getReferenceData(String category) {
         return referenceDataRepository.findByCategory(category);

@@ -15,14 +15,10 @@ import java.util.UUID;
 
 @Service
 public class CustomerService {
-    private final CustomerRepository customerRepository;
-    private final AuditRepository auditRepository;
-
     @Autowired
-    public CustomerService(CustomerRepository customerRepository, AuditRepository auditRepository) {
-        this.customerRepository = customerRepository;
-        this.auditRepository = auditRepository;
-    }
+    CustomerRepository customerRepository;
+    @Autowired
+    AuditRepository auditRepository;
 
     public Customer createCustomer(CustomerRequest request) {
         validateCustomerInput(request);

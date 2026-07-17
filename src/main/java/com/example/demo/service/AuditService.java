@@ -9,12 +9,8 @@ import java.util.List;
 
 @Service
 public class AuditService {
-    private final AuditRepository auditRepository;
-
     @Autowired
-    public AuditService(AuditRepository auditRepository) {
-        this.auditRepository = auditRepository;
-    }
+    AuditRepository auditRepository;
 
     public List<Audit> getAllAudits() {
         return auditRepository.findAll();

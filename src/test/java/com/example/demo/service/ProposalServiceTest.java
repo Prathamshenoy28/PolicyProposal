@@ -26,7 +26,12 @@ class ProposalServiceTest {
         customerRepository = new CustomerRepository();
         auditRepository = new AuditRepository();
         referenceDataRepository = new ReferenceDataRepository();
-        proposalService = new ProposalService(proposalRepository, customerRepository, auditRepository, referenceDataRepository);
+
+        proposalService = new ProposalService();
+        proposalService.proposalRepository = proposalRepository;
+        proposalService.customerRepository = customerRepository;
+        proposalService.auditRepository = auditRepository;
+        proposalService.referenceDataRepository = referenceDataRepository;
     }
 
     private Customer createTestCustomer(String customerId, int age, String pan) {
@@ -48,7 +53,7 @@ class ProposalServiceTest {
     @Test
     void testProposalCreationSuccess() {
         // Arrange
-        Customer customer = createTestCustomer("CUST1", 40, "ABCDE1234F");
+        createTestCustomer("CUST1", 40, "ABCDE1234F");
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST1")
                 .policyTerm(15)
@@ -70,7 +75,7 @@ class ProposalServiceTest {
     @Test
     void testPolicyTermValidation() {
         // Arrange
-        Customer customer = createTestCustomer("CUST2", 35, "ABCDE1234F");
+        createTestCustomer("CUST2", 35, "ABCDE1234F");
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST2")
                 .policyTerm(12) // Invalid term
@@ -87,7 +92,7 @@ class ProposalServiceTest {
     @Test
     void testSumAssuredMinimumValidation() {
         // Arrange
-        Customer customer = createTestCustomer("CUST3", 30, "ABCDE1234F");
+        createTestCustomer("CUST3", 30, "ABCDE1234F");
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST3")
                 .policyTerm(10)
@@ -104,7 +109,7 @@ class ProposalServiceTest {
     @Test
     void testSumAssuredMaximumValidation() {
         // Arrange
-        Customer customer = createTestCustomer("CUST4", 25, "ABCDE1234F");
+        createTestCustomer("CUST4", 25, "ABCDE1234F");
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST4")
                 .policyTerm(20)
@@ -121,7 +126,7 @@ class ProposalServiceTest {
     @Test
     void testAnnualPremiumMinimumValidation() {
         // Arrange
-        Customer customer = createTestCustomer("CUST5", 28, "ABCDE1234F");
+        createTestCustomer("CUST5", 28, "ABCDE1234F");
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST5")
                 .policyTerm(15)
@@ -138,7 +143,7 @@ class ProposalServiceTest {
     @Test
     void testPANValidationForHighPremium() {
         // Arrange
-        Customer customer = createTestCustomer("CUST6", 32, null); // No PAN
+        createTestCustomer("CUST6", 32, null); // No PAN
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST6")
                 .policyTerm(20)
@@ -155,7 +160,7 @@ class ProposalServiceTest {
     @Test
     void testPaymentFrequencyValidation() {
         // Arrange
-        Customer customer = createTestCustomer("CUST7", 38, "ABCDE1234F");
+        createTestCustomer("CUST7", 38, "ABCDE1234F");
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST7")
                 .policyTerm(25)
@@ -172,7 +177,7 @@ class ProposalServiceTest {
     @Test
     void testNomineeCannotBeSameAsCustomer() {
         // Arrange
-        Customer customer = createTestCustomer("CUST8", 45, "ABCDE1234F");
+        createTestCustomer("CUST8", 45, "ABCDE1234F");
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST8")
                 .policyTerm(30)
@@ -189,7 +194,7 @@ class ProposalServiceTest {
     @Test
     void testProposalSubmissionSuccess() {
         // Arrange
-        Customer customer = createTestCustomer("CUST9", 50, "ABCDE1234F");
+        createTestCustomer("CUST9", 50, "ABCDE1234F");
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST9")
                 .policyTerm(10)
@@ -212,7 +217,7 @@ class ProposalServiceTest {
     @Test
     void testProposalCannotBeSubmittedTwice() {
         // Arrange
-        Customer customer = createTestCustomer("CUST10", 33, "ABCDE1234F");
+        createTestCustomer("CUST10", 33, "ABCDE1234F");
         ProposalRequest request = ProposalRequest.builder()
                 .customerId("CUST10")
                 .policyTerm(15)

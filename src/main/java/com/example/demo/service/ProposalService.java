@@ -18,21 +18,14 @@ import java.util.UUID;
 
 @Service
 public class ProposalService {
-    private final ProposalRepository proposalRepository;
-    private final CustomerRepository customerRepository;
-    private final AuditRepository auditRepository;
-    private final ReferenceDataRepository referenceDataRepository;
-
     @Autowired
-    public ProposalService(ProposalRepository proposalRepository,
-                           CustomerRepository customerRepository,
-                           AuditRepository auditRepository,
-                           ReferenceDataRepository referenceDataRepository) {
-        this.proposalRepository = proposalRepository;
-        this.customerRepository = customerRepository;
-        this.auditRepository = auditRepository;
-        this.referenceDataRepository = referenceDataRepository;
-    }
+    ProposalRepository proposalRepository;
+    @Autowired
+    CustomerRepository customerRepository;
+    @Autowired
+    AuditRepository auditRepository;
+    @Autowired
+    ReferenceDataRepository referenceDataRepository;
 
     public Proposal createProposal(ProposalRequest request) {
         // Validate customer exists
